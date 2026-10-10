@@ -20,25 +20,44 @@
       ];
       # Directory names under ./themes; each provides packages
       # nixos-plymouth-<name> and nixos-plymouth-<name>-preview.
-      themes = [ "default" ];
+      themes = [
+        "spin"
+        "glow"
+      ];
       forAllSystems = f: nixpkgs.lib.genAttrs systems (system: f nixpkgs.legacyPackages.${system});
     in
     {
       packages = forAllSystems (
         pkgs:
         let
+          inherit (nixpkgs) lib;
           branding = nixos-branding.legacyPackages.${pkgs.stdenv.hostPlatform.system}.nixos-branding;
-          nixos-plymouth-default = pkgs.callPackage ./themes/default/package.nix {
-            logomark = branding.artifacts.internal.nixos-logomark-default-gradient-none;
-          };
+          mkTheme = pkgs.callPackage ./themes/common/mk-theme.nix { };
+          themePackage =
+            name:
+            pkgs.callPackage ./themes/${name}/package.nix {
+              inherit mkTheme;
+              logomark = branding.artifacts.internal.nixos-logomark-default-gradient-none;
+            };
+          perTheme = lib.listToAttrs (
+            lib.concatMap (
+              name:
+              let
+                theme = themePackage name;
+              in
+              [
+                (lib.nameValuePair "nixos-plymouth-${name}" theme)
+                (lib.nameValuePair "nixos-plymouth-${name}-preview" (
+                  pkgs.callPackage ./themes/common/preview.nix { inherit theme; }
+                ))
+              ]
+            ) themes
+          );
         in
-        {
-          inherit nixos-plymouth-default;
-          nixos-plymouth-default-preview = pkgs.callPackage ./themes/default/preview.nix {
-            theme = nixos-plymouth-default;
-          };
-          default = nixos-plymouth-default;
-          preview = self.packages.${pkgs.stdenv.hostPlatform.system}.nixos-plymouth-default-preview;
+        perTheme
+        // {
+          default = perTheme.nixos-plymouth-spin;
+          preview = perTheme.nixos-plymouth-spin-preview;
         }
       );
 
@@ -77,9 +96,15 @@
         {
           options.services.nixos-plymouth = {
             enable = lib.mkEnableOption "the NixOS Plymouth boot splash theme";
+            theme = lib.mkOption {
+              type = lib.types.enum themes;
+              default = "spin";
+              description = "Which theme to use.";
+            };
             package = lib.mkOption {
               type = lib.types.package;
-              default = self.packages.${pkgs.stdenv.hostPlatform.system}.default;
+              default = self.packages.${pkgs.stdenv.hostPlatform.system}."nixos-plymouth-${cfg.theme}";
+              defaultText = lib.literalExpression ''self.packages.''${system}."nixos-plymouth-''${theme}"'';
               description = "Theme package to install.";
             };
           };
@@ -88,7 +113,7 @@
             boot.plymouth = {
               enable = true;
               themePackages = [ cfg.package ];
-              theme = "nixos-default";
+              theme = cfg.package.themeName;
             };
           };
         };
@@ -100,6 +125,7 @@
           packages = with pkgs; [
             librsvg
             imagemagick
+            pngquant
             python3
           ];
         };

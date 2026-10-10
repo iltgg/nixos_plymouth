@@ -1,13 +1,14 @@
-# NixOS default Plymouth theme: the logomark winds up and spins on black,
-# with a password cursor centered below it.
+# Shared Plymouth script for the NixOS themes: plays the theme's pre-rendered
+# logo animation centered on black, with a password cursor below it.
 #
-# The frame count and sequence below are filled in at build time
-# from render-frames.py output.
+# The frame count, canvas scale and sequence below are filled in at build time
+# from the theme's render-frames.py output.
 
 Window.SetBackgroundTopColor(0, 0, 0);
 Window.SetBackgroundBottomColor(0, 0, 0);
 
 frame_count = @frameCount@;
+canvas_scale = @canvasScale@; # frame size relative to the logo (room for glows)
 sequence_length = @sequenceLength@;
 @sequence@
 
@@ -24,11 +25,12 @@ if (logo_size < 128)
   logo_size = 128;
 ui = logo_size / 256;
 
+frame_size = Math.Int(logo_size * canvas_scale);
 for (i = 0; i < frame_count; i++)
-  frames[i] = Image("frame-" + i + ".png").Scale(logo_size, logo_size);
+  frames[i] = Image("frame-" + i + ".png").Scale(frame_size, frame_size);
 
 logo = Sprite(frames[0]);
-logo.SetPosition(center_x - logo_size / 2, center_y - logo_size / 2, 10);
+logo.SetPosition(center_x - frame_size / 2, center_y - frame_size / 2, 10);
 
 tick = 0;
 fun refresh_callback() {

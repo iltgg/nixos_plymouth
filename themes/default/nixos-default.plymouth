@@ -1,8 +1,0 @@
-[Plymouth Theme]
-Name=NixOS Default
-Description=NixOS logomark that winds up and spins, with a password cursor
-ModuleName=script
-
-[script]
-ImageDir=@theme@
-ScriptFile=@theme@/nixos-default.script
